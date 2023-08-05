@@ -1,26 +1,29 @@
 package org.example;
 
-import javax.swing.*;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
 import java.awt.*;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import javax.swing.*;
+import javax.swing.event.DocumentEvent;
+import javax.swing.event.DocumentListener;
 
 public class Main {
-    private static void calc(JTextField textField1, JTextField textField2, JTextField line1, JTextField line2) {
-        SwingUtilities.invokeLater(() -> {
-            try {
-                String p1 = textField1.getText();
-                String p2 = textField2.getText();
-                double s1 = Files.size(Path.of(p1));
-                double s2 = Files.size(Path.of(p2));
-                line1.setText((float) (s1 / 1024 / 1024) + " vs " + (float) (s2 / 1024 / 1024));
-                line2.setText((float) ((-1.0 + (s2 / s1)) * 100.0) + " %");
-            } catch (IOException ignore) {
-            }
-        });
+    private static void calc(
+            JTextField textField1, JTextField textField2, JTextField line1, JTextField line2) {
+        SwingUtilities.invokeLater(
+                () -> {
+                    try {
+                        String p1 = textField1.getText();
+                        String p2 = textField2.getText();
+                        double s1 = Files.size(Path.of(p1));
+                        double s2 = Files.size(Path.of(p2));
+                        line1.setText(
+                                (float) (s1 / 1024 / 1024) + " vs " + (float) (s2 / 1024 / 1024));
+                        line2.setText((float) ((-1.0 + (s2 / s1)) * 100.0) + " %");
+                    } catch (IOException ignore) {
+                    }
+                });
     }
 
     public static void main(String[] args) {
@@ -48,41 +51,44 @@ public class Main {
         frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
         frame.setVisible(true);
 
-        DocumentListener dl = new DocumentListener() {
-            private void update() {
-                calc(textField1, textField2, line1, line2);
-            }
+        DocumentListener dl =
+                new DocumentListener() {
+                    private void update() {
+                        calc(textField1, textField2, line1, line2);
+                    }
 
-            @Override
-            public void insertUpdate(DocumentEvent e) {
-                update();
-            }
+                    @Override
+                    public void insertUpdate(DocumentEvent e) {
+                        update();
+                    }
 
-            @Override
-            public void removeUpdate(DocumentEvent e) {
-                update();
-            }
+                    @Override
+                    public void removeUpdate(DocumentEvent e) {
+                        update();
+                    }
 
-            @Override
-            public void changedUpdate(DocumentEvent e) {
-                update();
-            }
-        };
+                    @Override
+                    public void changedUpdate(DocumentEvent e) {
+                        update();
+                    }
+                };
         textField1.getDocument().addDocumentListener(dl);
         textField2.getDocument().addDocumentListener(dl);
-        button1.addActionListener(e -> {
-            JFileChooser jfc = new JFileChooser();
-            jfc.showOpenDialog(null);
-            if (jfc.getSelectedFile() != null) {
-                textField1.setText(jfc.getSelectedFile().getAbsolutePath());
-            }
-        });
-        button2.addActionListener(e -> {
-            JFileChooser jfc = new JFileChooser();
-            jfc.showOpenDialog(null);
-            if (jfc.getSelectedFile() != null) {
-                textField2.setText(jfc.getSelectedFile().getAbsolutePath());
-            }
-        });
+        button1.addActionListener(
+                e -> {
+                    JFileChooser jfc = new JFileChooser();
+                    jfc.showOpenDialog(null);
+                    if (jfc.getSelectedFile() != null) {
+                        textField1.setText(jfc.getSelectedFile().getAbsolutePath());
+                    }
+                });
+        button2.addActionListener(
+                e -> {
+                    JFileChooser jfc = new JFileChooser();
+                    jfc.showOpenDialog(null);
+                    if (jfc.getSelectedFile() != null) {
+                        textField2.setText(jfc.getSelectedFile().getAbsolutePath());
+                    }
+                });
     }
 }
