@@ -1,6 +1,11 @@
 package org.example;
 
 import java.awt.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.event.ActionListener;
+import java.awt.event.KeyEvent;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +31,27 @@ public class Main {
                 });
     }
 
+    private static boolean processClipboardFail(Clipboard clipboard, JTextField textField) {
+        try {
+            if (clipboard.isDataFlavorAvailable(DataFlavor.javaFileListFlavor)) {
+                Object o = clipboard.getData(DataFlavor.javaFileListFlavor);
+                if (o instanceof java.util.List<?> paths) {
+                    if (!paths.isEmpty()) {
+                        File f = (File) paths.get(0);
+                        if (f != null) {
+                            // finally, we got the filename :)
+                            String fn = f.getAbsolutePath();
+                            textField.setText(fn);
+                            return false;
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignore) {
+        }
+        return true;
+    }
+
     public static void main(String[] args) {
         JTextField textField1 = new JTextField("pfad1");
         JTextField textField2 = new JTextField("pfad2");
@@ -44,7 +70,7 @@ public class Main {
         panel3.add(button2);
         panel1.add(panel2, BorderLayout.CENTER);
         panel1.add(panel3, BorderLayout.EAST);
-        JFrame frame = new JFrame("File Size Compare v1");
+        JFrame frame = new JFrame("File Size Compare");
         frame.add(panel1);
         frame.pack();
         frame.setSize(600, frame.getHeight());
@@ -74,6 +100,7 @@ public class Main {
                 };
         textField1.getDocument().addDocumentListener(dl);
         textField2.getDocument().addDocumentListener(dl);
+
         button1.addActionListener(
                 e -> {
                     JFileChooser jfc = new JFileChooser();
@@ -90,5 +117,27 @@ public class Main {
                         textField2.setText(jfc.getSelectedFile().getAbsolutePath());
                     }
                 });
+
+        Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
+        KeyStroke ctrlV = KeyStroke.getKeyStroke(KeyEvent.VK_V, KeyEvent.CTRL_DOWN_MASK);
+        ActionListener regularAction1 = textField1.getActionForKeyStroke(ctrlV);
+        ActionListener regularAction2 = textField2.getActionForKeyStroke(ctrlV);
+
+        textField1.registerKeyboardAction(
+                e -> {
+                    if (processClipboardFail(clipboard, textField1)) {
+                        regularAction1.actionPerformed(e);
+                    }
+                },
+                ctrlV,
+                JComponent.WHEN_FOCUSED);
+        textField2.registerKeyboardAction(
+                e -> {
+                    if (processClipboardFail(clipboard, textField2)) {
+                        regularAction2.actionPerformed(e);
+                    }
+                },
+                ctrlV,
+                JComponent.WHEN_FOCUSED);
     }
 }
