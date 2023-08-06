@@ -9,29 +9,34 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.function.BiFunction;
+import java.util.function.Function;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 public class Main {
-    private static void calc(
-            JTextField textField1, JTextField textField2, JTextField line1, JTextField line2) {
+    private static void calc(JTextField f1, JTextField f2, JTextField f3, JTextField f4) {
         SwingUtilities.invokeLater(
                 () -> {
                     try {
-                        String p1 = textField1.getText();
-                        String p2 = textField2.getText();
-                        double s1 = Files.size(Path.of(p1));
-                        double s2 = Files.size(Path.of(p2));
-                        line1.setText(
-                                (float) (s1 / 1024 / 1024) + " vs " + (float) (s2 / 1024 / 1024));
-                        line2.setText((float) ((-1.0 + (s2 / s1)) * 100.0) + " %");
+                        String p1 = f1.getText();
+                        String p2 = f2.getText();
+                        if (new File(p1).exists() && new File(p2).exists()) {
+                            double s1 = Files.size(Path.of(p1));
+                            double s2 = Files.size(Path.of(p2));
+                            f3.setText(
+                                    (float) (s1 / 1024.0 / 1024.0)
+                                            + " vs "
+                                            + (float) (s2 / 1024.0 / 1024.0));
+                            f4.setText((float) ((-1.0 + s2 / s1) * 100.0) + " %");
+                        }
                     } catch (IOException ignore) {
                     }
                 });
     }
 
-    private static boolean processClipboardFail(Clipboard clipboard, JTextField textField) {
+    private static boolean processClipboardFail(Clipboard clipboard, JTextField field) {
         try {
             if (clipboard.isDataFlavorAvailable(DataFlavor.javaFileListFlavor)) {
                 Object o = clipboard.getData(DataFlavor.javaFileListFlavor);
@@ -39,9 +44,9 @@ public class Main {
                     if (!paths.isEmpty()) {
                         File f = (File) paths.get(0);
                         if (f != null) {
-                            // finally, we got the filename :)
+                            // finally we got the filename :)
                             String fn = f.getAbsolutePath();
-                            textField.setText(fn);
+                            field.setText(fn);
                             return false;
                         }
                     }
@@ -53,19 +58,19 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        JTextField textField1 = new JTextField("pfad1");
-        JTextField textField2 = new JTextField("pfad2");
+        JTextField input1 = new JTextField("pfad1 oder strg+v");
+        JTextField input2 = new JTextField("pfad2 oder strg+v");
         JButton button1 = new JButton("Auswahl 1");
         JButton button2 = new JButton("Auswahl 2");
-        JTextField line1 = new JTextField();
-        JTextField line2 = new JTextField();
+        JTextField output1 = new JTextField();
+        JTextField output2 = new JTextField();
         JPanel panel1 = new JPanel(new BorderLayout());
         JPanel panel2 = new JPanel(new GridLayout(4, 1));
         JPanel panel3 = new JPanel(new GridLayout(4, 1));
-        panel2.add(textField1);
-        panel2.add(textField2);
-        panel2.add(line1);
-        panel2.add(line2);
+        panel2.add(input1);
+        panel2.add(input2);
+        panel2.add(output1);
+        panel2.add(output2);
         panel3.add(button1);
         panel3.add(button2);
         panel1.add(panel2, BorderLayout.CENTER);
@@ -80,7 +85,7 @@ public class Main {
         DocumentListener dl =
                 new DocumentListener() {
                     private void update() {
-                        calc(textField1, textField2, line1, line2);
+                        calc(input1, input2, output1, output2);
                     }
 
                     @Override
@@ -98,46 +103,36 @@ public class Main {
                         update();
                     }
                 };
-        textField1.getDocument().addDocumentListener(dl);
-        textField2.getDocument().addDocumentListener(dl);
+        input1.getDocument().addDocumentListener(dl);
+        input2.getDocument().addDocumentListener(dl);
 
-        button1.addActionListener(
-                e -> {
-                    JFileChooser jfc = new JFileChooser();
-                    jfc.showOpenDialog(null);
-                    if (jfc.getSelectedFile() != null) {
-                        textField1.setText(jfc.getSelectedFile().getAbsolutePath());
-                    }
-                });
-        button2.addActionListener(
-                e -> {
-                    JFileChooser jfc = new JFileChooser();
-                    jfc.showOpenDialog(null);
-                    if (jfc.getSelectedFile() != null) {
-                        textField2.setText(jfc.getSelectedFile().getAbsolutePath());
-                    }
-                });
+        Function<JTextField, ActionListener> alFactory1 =
+                inputField ->
+                        e -> {
+                            JFileChooser jfc = new JFileChooser();
+                            jfc.showOpenDialog(null);
+                            if (jfc.getSelectedFile() != null) {
+                                inputField.setText(jfc.getSelectedFile().getAbsolutePath());
+                            }
+                        };
+        button1.addActionListener(alFactory1.apply(input1));
+        button2.addActionListener(alFactory1.apply(input2));
 
         Clipboard clipboard = Toolkit.getDefaultToolkit().getSystemClipboard();
         KeyStroke ctrlV = KeyStroke.getKeyStroke(KeyEvent.VK_V, KeyEvent.CTRL_DOWN_MASK);
-        ActionListener regularAction1 = textField1.getActionForKeyStroke(ctrlV);
-        ActionListener regularAction2 = textField2.getActionForKeyStroke(ctrlV);
+        ActionListener regularAction1 = input1.getActionForKeyStroke(ctrlV);
+        ActionListener regularAction2 = input2.getActionForKeyStroke(ctrlV);
+        BiFunction<JTextField, ActionListener, ActionListener> alFactor2 =
+                (inputField, regularAction) ->
+                        e -> {
+                            if (processClipboardFail(clipboard, inputField)) {
+                                regularAction1.actionPerformed(e);
+                            }
+                        };
 
-        textField1.registerKeyboardAction(
-                e -> {
-                    if (processClipboardFail(clipboard, textField1)) {
-                        regularAction1.actionPerformed(e);
-                    }
-                },
-                ctrlV,
-                JComponent.WHEN_FOCUSED);
-        textField2.registerKeyboardAction(
-                e -> {
-                    if (processClipboardFail(clipboard, textField2)) {
-                        regularAction2.actionPerformed(e);
-                    }
-                },
-                ctrlV,
-                JComponent.WHEN_FOCUSED);
+        input1.registerKeyboardAction(
+                alFactor2.apply(input1, regularAction1), ctrlV, JComponent.WHEN_FOCUSED);
+        input2.registerKeyboardAction(
+                alFactor2.apply(input2, regularAction2), ctrlV, JComponent.WHEN_FOCUSED);
     }
 }
