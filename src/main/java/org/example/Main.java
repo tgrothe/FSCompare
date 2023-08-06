@@ -126,7 +126,7 @@ public class Main {
                 (inputField, regularAction) ->
                         e -> {
                             if (processClipboardFail(clipboard, inputField)) {
-                                regularAction1.actionPerformed(e);
+                                regularAction.actionPerformed(e);
                             }
                         };
 
