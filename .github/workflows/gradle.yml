@@ -20,7 +20,7 @@ jobs:
         with:
           gradlePath: build.gradle
           versionCode: ${{github.run_number}}
-          versionName: 1.5
+          versionName: 1.0.0
   build:
     runs-on: ubuntu-latest
     steps:
