@@ -20,3 +20,11 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           arguments: -P release.useLastTag=true clean build jar
+      - name: List files in the repository
+        run: |
+          ls -Rla
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            build/libs/*.jar
