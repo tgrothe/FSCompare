@@ -13,7 +13,12 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: delivery-much/actions-assigner@v1
+      - name: Auto assigner
+        uses: delivery-much/actions-assigner@v1
+      - name: Bump version
+        uses: chkfung/android-version-actions@v1.2.1
+        with:
+          gradlePath: build.gradle
   build:
     runs-on: ubuntu-latest
     steps:

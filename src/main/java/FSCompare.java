@@ -55,7 +55,7 @@ public class FSCompare {
             float max = 0;
             for (int i = 0; i < getRowCount(); i++) {
                 String path = (String) getValueAt(i, col0);
-                if (new File(path).exists()) {
+                if (new File(path).canRead()) {
                     float size = Files.size(Path.of(path)) / 1024f / 1024f;
                     setValueAt(size, i, col1);
                     if (size > max) {
@@ -85,7 +85,7 @@ public class FSCompare {
                 if (i == row) {
                     path = editor.getText();
                 }
-                if (new File(path).exists()) {
+                if (new File(path).canRead()) {
                     float size = Files.size(Path.of(path)) / 1024f / 1024f;
                     setValueAt(size, i, col1);
                     if (size > max) {
