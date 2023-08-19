@@ -19,7 +19,7 @@ jobs:
       - name: Build with Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: -P release.useLastTag=true clean build jar
+          arguments: -Prelease.useLastTag=true clean build jar
       - name: List files in the repository
         run: |
           ls -Rla

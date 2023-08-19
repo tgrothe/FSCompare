@@ -138,7 +138,7 @@ public class FSCompare {
         }
     }
 
-    private transient int currentRow = 0;
+    private volatile int currentRow = 0;
 
     public FSCompare() {
         ETableModel model = new ETableModel();
