@@ -13,7 +13,8 @@ jobs:
     if: ${{ github.event_name == 'pull_request' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: delivery-much/actions-assigner@v1
+      - name: Auto assigner
+        uses: delivery-much/actions-assigner@v1
   build:
     runs-on: ubuntu-latest
     steps:
