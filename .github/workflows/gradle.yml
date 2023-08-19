@@ -19,6 +19,7 @@ jobs:
         uses: chkfung/android-version-actions@v1.2.1
         with:
           gradlePath: build.gradle
+          versionCode: ${{github.run_number}}
   build:
     runs-on: ubuntu-latest
     steps:
