@@ -17,9 +17,9 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
       - name: Build with Gradle
-        uses: gradle/gradle-build-action@bd5760595778326ba7f1441bcf7e88b49de61a25 # v2.6.0
+        uses: gradle/gradle-build-action@v2
         with:
-          arguments: -Prelease.useLastTag=true final clean build jar
+          arguments: -P release.useLastTag=true final clean build jar
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
