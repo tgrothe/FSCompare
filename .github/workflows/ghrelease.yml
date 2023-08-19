@@ -3,7 +3,7 @@ name: GH Target Release
 on:
   push:
     tags:
-      - "v*.*"
+      - "v*.*.*"
 
 jobs:
   build:
