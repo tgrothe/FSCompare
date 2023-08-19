@@ -19,9 +19,4 @@ jobs:
       - name: Build with Gradle
         uses: gradle/gradle-build-action@v2
         with:
-          arguments: -P release.useLastTag=true final clean build jar
-      - name: Release
-        uses: softprops/action-gh-release@v1
-        with:
-          files: |
-            build/libs/*.jar
+          arguments: -P release.useLastTag=true clean build jar
