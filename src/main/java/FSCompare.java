@@ -1,4 +1,6 @@
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
@@ -7,8 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -28,6 +32,14 @@ public class FSCompare {
             table.add(new Object[] {"", 0f, new JProgressBar()});
         }
 
+        public void removeRow(int rowIndex) {
+            table.remove(rowIndex);
+            if (table.isEmpty()) {
+                addNewRow();
+            }
+            fireTableDataChanged();
+        }
+
         public void addDir() throws IOException {
             final int row = currentRow;
             final int col0 = 0;
@@ -39,72 +51,59 @@ public class FSCompare {
                 Arrays.sort(files, Comparator.comparing(File::getName));
                 for (int i = 0; i < files.length; i++) {
                     int ri = row + i + 1;
-                    setValueAt(files[i].getPath(), ri, col0);
-                    if (ri + 1 == getRowCount()) {
+                    if (ri == getRowCount()) {
                         addNewRow();
                     }
+                    setValueAt(files[i].getPath(), ri, col0);
                 }
-                calculateTable();
+                calculateTable(null);
             }
         }
 
-        public void calculateTable() throws IOException {
-            final int col0 = 0;
-            final int col1 = 1;
-            final int col2 = 2;
-            float max = 0;
-            for (int i = 0; i < getRowCount(); i++) {
-                String path = (String) getValueAt(i, col0);
-                if (new File(path).canRead()) {
-                    float size = Files.size(Path.of(path)) / 1024f / 1024f;
+        public void calculateTable(JTextField editor) {
+            Optional<ArrayList<Long>> sizes = getSizes(editor);
+            if (sizes.isPresent() && !sizes.get().isEmpty()) {
+                final ArrayList<Long> list = sizes.get();
+                final float max = Collections.max(list) / (float) (1024 * 1024);
+                final int col1 = 1;
+                final int col2 = 2;
+                for (int i = 0; i < list.size(); i++) {
+                    float size = (float) list.get(i) / (float) (1024 * 1024);
+                    int percent = Math.round(size * 100 / max);
                     setValueAt(size, i, col1);
-                    if (size > max) {
-                        max = size;
-                    }
-                } else {
-                    setValueAt(0f, i, col1);
+                    ((JProgressBar) getValueAt(i, col2)).setValue(percent);
                 }
+                if (list.size() == getRowCount()) {
+                    addNewRow();
+                }
+                fireTableDataChanged();
             }
-            for (int i = 0; i < getRowCount(); i++) {
-                float size = (float) getValueAt(i, col1);
-                int percent = (int) (size / max * 100f);
-                ((JProgressBar) getValueAt(i, col2)).setValue(percent);
-            }
-            fireTableDataChanged();
         }
 
-        public void calculateTable(JTextField editor) throws IOException {
+        private Optional<ArrayList<Long>> getSizes(JTextField editor) {
+            ArrayList<Long> sizes = new ArrayList<>();
             final int row = currentRow;
             final int col0 = 0;
-            final int col1 = 1;
-            final int col2 = 2;
-            boolean newRowNeeded = true;
-            float max = 0;
             for (int i = 0; i < getRowCount(); i++) {
-                String path = (String) getValueAt(i, col0);
-                if (i == row) {
+                String path;
+                if (editor != null && i == row) {
                     path = editor.getText();
+                } else {
+                    path = (String) getValueAt(i, col0);
                 }
-                if (new File(path).canRead()) {
-                    float size = Files.size(Path.of(path)) / 1024f / 1024f;
-                    setValueAt(size, i, col1);
-                    if (size > max) {
-                        max = size;
+                if (i == getRowCount() - 1 && path.isEmpty()) {
+                    sizes.add(0L);
+                } else if (new File(path).canRead()) {
+                    try {
+                        sizes.add(Files.size(Path.of(path)));
+                    } catch (IOException ignore) {
+                        return Optional.empty();
                     }
                 } else {
-                    setValueAt(0f, i, col1);
-                    newRowNeeded = false;
+                    return Optional.empty();
                 }
             }
-            for (int i = 0; i < getRowCount(); i++) {
-                float size = (float) getValueAt(i, col1);
-                int percent = (int) (size / max * 100f);
-                ((JProgressBar) getValueAt(i, col2)).setValue(percent);
-            }
-            if (newRowNeeded && row + 1 == getRowCount()) {
-                addNewRow();
-            }
-            fireTableDataChanged();
+            return Optional.of(sizes);
         }
 
         @Override
@@ -196,10 +195,7 @@ public class FSCompare {
                                 final int col =
                                         table.convertColumnIndexToModel(table.getEditingColumn());
                                 if (col == 0) {
-                                    try {
-                                        model.calculateTable(editor);
-                                    } catch (IOException ignore) {
-                                    }
+                                    model.calculateTable(editor);
                                 }
                             }
 
@@ -225,7 +221,6 @@ public class FSCompare {
                             final int row = x.getFirstIndex();
                             if (row >= 0) {
                                 currentRow = table.convertRowIndexToModel(row);
-                                System.out.println("currentRow = " + currentRow);
                             }
                         });
 
@@ -234,7 +229,6 @@ public class FSCompare {
                     public void mousePressed(MouseEvent e) {
                         if (e.getClickCount() == 2 && table.getSelectedRow() != -1) {
                             try {
-                                System.out.println("e = " + e);
                                 model.addDir();
                             } catch (IOException ignore) {
                             }
@@ -242,8 +236,23 @@ public class FSCompare {
                     }
                 });
 
+        table.addKeyListener(
+                new KeyAdapter() {
+                    @Override
+                    public void keyPressed(KeyEvent e) {
+                        int row = table.getSelectedRow();
+                        if (e.getKeyCode() == KeyEvent.VK_DELETE && row != -1) {
+                            model.removeRow(table.convertRowIndexToModel(row));
+                        }
+                    }
+                });
+
         JFrame frame = new JFrame("File Size Compare");
-        frame.add(new JLabel("Double-click a row to add the entire folder."), BorderLayout.NORTH);
+        frame.add(
+                new JLabel(
+                        "Double-click a row to add the entire folder. Press <Del> to delete a"
+                                + " row."),
+                BorderLayout.NORTH);
         frame.add(new JScrollPane(table), BorderLayout.CENTER);
         frame.setSize(600, 400);
         frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
