@@ -30,14 +30,13 @@ public class FSCompare {
 
         public void addNewRow() {
             table.add(new Object[] {"", 0f, new JProgressBar()});
+            fireTableDataChanged();
         }
 
         public void removeRow(int rowIndex) {
             table.remove(rowIndex);
-            if (table.isEmpty()) {
-                addNewRow();
-            }
             fireTableDataChanged();
+            addNewRowIfNeeded();
         }
 
         public void addDir() throws IOException {
@@ -51,9 +50,6 @@ public class FSCompare {
                 Arrays.sort(files, Comparator.comparing(File::getName));
                 for (int i = 0; i < files.length; i++) {
                     int ri = row + i + 1;
-                    if (ri == getRowCount()) {
-                        addNewRow();
-                    }
                     setValueAt(files[i].getPath(), ri, col0);
                 }
                 calculateTable(null);
@@ -73,10 +69,14 @@ public class FSCompare {
                     setValueAt(size, i, col1);
                     ((JProgressBar) getValueAt(i, col2)).setValue(percent);
                 }
-                if (list.size() == getRowCount()) {
-                    addNewRow();
-                }
                 fireTableDataChanged();
+            }
+        }
+
+        private void addNewRowIfNeeded() {
+            int i = getRowCount() - 1;
+            if (table.isEmpty() || !((String) getValueAt(i, 0)).isEmpty()) {
+                addNewRow();
             }
         }
 
@@ -84,23 +84,21 @@ public class FSCompare {
             ArrayList<Long> sizes = new ArrayList<>();
             final int row = currentRow;
             final int col0 = 0;
+            if (editor != null) {
+                setValueAt(editor.getText(), row, col0);
+            }
             for (int i = 0; i < getRowCount(); i++) {
-                String path;
-                if (editor != null && i == row) {
-                    path = editor.getText();
-                } else {
-                    path = (String) getValueAt(i, col0);
-                }
-                if (i == getRowCount() - 1 && path.isEmpty()) {
+                String path = (String) getValueAt(i, col0);
+                if (path.isEmpty()) {
                     sizes.add(0L);
                 } else if (new File(path).canRead()) {
                     try {
                         sizes.add(Files.size(Path.of(path)));
                     } catch (IOException ignore) {
-                        return Optional.empty();
+                        sizes.add(0L);
                     }
                 } else {
-                    return Optional.empty();
+                    sizes.add(0L);
                 }
             }
             return Optional.of(sizes);
@@ -124,6 +122,7 @@ public class FSCompare {
         @Override
         public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
             table.get(rowIndex)[columnIndex] = aValue;
+            addNewRowIfNeeded();
         }
 
         @Override
@@ -240,9 +239,11 @@ public class FSCompare {
                 new KeyAdapter() {
                     @Override
                     public void keyPressed(KeyEvent e) {
-                        int row = table.getSelectedRow();
-                        if (e.getKeyCode() == KeyEvent.VK_DELETE && row != -1) {
-                            model.removeRow(table.convertRowIndexToModel(row));
+                        if (e.getKeyCode() == KeyEvent.VK_DELETE) {
+                            int[] selectedRows = table.getSelectedRows();
+                            for (int i = selectedRows.length - 1; i >= 0; i--) {
+                                model.removeRow(table.convertRowIndexToModel(selectedRows[i]));
+                            }
                         }
                     }
                 });
@@ -250,8 +251,7 @@ public class FSCompare {
         JFrame frame = new JFrame("File Size Compare");
         frame.add(
                 new JLabel(
-                        "Double-click a row to add the entire folder. Press <Del> to delete a"
-                                + " row."),
+                        "Double-click a row to add the entire folder. Press <Del> to delete rows."),
                 BorderLayout.NORTH);
         frame.add(new JScrollPane(table), BorderLayout.CENTER);
         frame.setSize(600, 400);
