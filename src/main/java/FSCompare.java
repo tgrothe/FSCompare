@@ -12,7 +12,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Optional;
 import javax.swing.*;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -33,15 +32,23 @@ public class FSCompare {
             fireTableDataChanged();
         }
 
+        public void addNewRow(int rowIndex) {
+            table.add(rowIndex, new Object[] {"", 0f, new JProgressBar()});
+            fireTableDataChanged();
+        }
+
         public void removeRow(int rowIndex) {
             table.remove(rowIndex);
             fireTableDataChanged();
             addNewRowIfNeeded();
         }
 
-        public void addDir() throws IOException {
+        public void addDir(JTextField editor) throws IOException {
             final int row = currentRow;
             final int col0 = 0;
+            if (editor != null) {
+                setValueAt(editor.getText(), row, col0);
+            }
             String path = (String) getValueAt(row, col0);
             File dir = new File(path);
             if (dir.canRead() && dir.isDirectory()) {
@@ -50,6 +57,7 @@ public class FSCompare {
                 Arrays.sort(files, Comparator.comparing(File::getName));
                 for (int i = 0; i < files.length; i++) {
                     int ri = row + i + 1;
+                    addNewRow(ri);
                     setValueAt(files[i].getPath(), ri, col0);
                 }
                 calculateTable(null);
@@ -57,20 +65,17 @@ public class FSCompare {
         }
 
         public void calculateTable(JTextField editor) {
-            Optional<ArrayList<Long>> sizes = getSizes(editor);
-            if (sizes.isPresent() && !sizes.get().isEmpty()) {
-                final ArrayList<Long> list = sizes.get();
-                final float max = Collections.max(list) / (float) (1024 * 1024);
-                final int col1 = 1;
-                final int col2 = 2;
-                for (int i = 0; i < list.size(); i++) {
-                    float size = (float) list.get(i) / (float) (1024 * 1024);
-                    int percent = Math.round(size * 100 / max);
-                    setValueAt(size, i, col1);
-                    ((JProgressBar) getValueAt(i, col2)).setValue(percent);
-                }
-                fireTableDataChanged();
+            final ArrayList<Long> sizes = getSizes(editor);
+            final float max = Collections.max(sizes) / (float) (1024 * 1024);
+            final int col1 = 1;
+            final int col2 = 2;
+            for (int i = 0; i < sizes.size(); i++) {
+                float size = (float) sizes.get(i) / (float) (1024 * 1024);
+                int percent = Math.round(size * 100f / max);
+                setValueAt(size, i, col1);
+                ((JProgressBar) getValueAt(i, col2)).setValue(percent);
             }
+            fireTableDataChanged();
         }
 
         private void addNewRowIfNeeded() {
@@ -80,8 +85,8 @@ public class FSCompare {
             }
         }
 
-        private Optional<ArrayList<Long>> getSizes(JTextField editor) {
-            ArrayList<Long> sizes = new ArrayList<>();
+        private ArrayList<Long> getSizes(JTextField editor) {
+            final ArrayList<Long> sizes = new ArrayList<>();
             final int row = currentRow;
             final int col0 = 0;
             if (editor != null) {
@@ -89,19 +94,17 @@ public class FSCompare {
             }
             for (int i = 0; i < getRowCount(); i++) {
                 String path = (String) getValueAt(i, col0);
-                if (path.isEmpty()) {
+                if (path.isEmpty() || !new File(path).canRead()) {
                     sizes.add(0L);
-                } else if (new File(path).canRead()) {
+                } else {
                     try {
                         sizes.add(Files.size(Path.of(path)));
                     } catch (IOException ignore) {
                         sizes.add(0L);
                     }
-                } else {
-                    sizes.add(0L);
                 }
             }
-            return Optional.of(sizes);
+            return sizes;
         }
 
         @Override
@@ -144,22 +147,10 @@ public class FSCompare {
         table.setDefaultRenderer(
                 Object.class,
                 new TableCellRenderer() {
-                    static class ProgressRenderer extends JProgressBar
-                            implements TableCellRenderer {
+                    static class ProgressRenderer extends JProgressBar {
                         public ProgressRenderer(JProgressBar progressBar) {
                             this.setValue(progressBar.getValue());
                             this.setStringPainted(true);
-                        }
-
-                        @Override
-                        public Component getTableCellRendererComponent(
-                                JTable table,
-                                Object value,
-                                boolean isSelected,
-                                boolean hasFocus,
-                                int row,
-                                int column) {
-                            return this;
                         }
                     }
 
@@ -176,9 +167,7 @@ public class FSCompare {
                             int column) {
                         if (table.convertColumnIndexToModel(column) == 2) {
                             return new ProgressRenderer(
-                                            (JProgressBar) table.getValueAt(row, column))
-                                    .getTableCellRendererComponent(
-                                            table, value, isSelected, hasFocus, row, column);
+                                    (JProgressBar) table.getValueAt(row, column));
                         }
                         return defaultTableCellRenderer.getTableCellRendererComponent(
                                 table, value, isSelected, hasFocus, row, column);
@@ -191,8 +180,7 @@ public class FSCompare {
                 .addDocumentListener(
                         new DocumentListener() {
                             private void update() {
-                                final int col =
-                                        table.convertColumnIndexToModel(table.getEditingColumn());
+                                int col = table.convertColumnIndexToModel(table.getEditingColumn());
                                 if (col == 0) {
                                     model.calculateTable(editor);
                                 }
@@ -217,7 +205,7 @@ public class FSCompare {
         table.getSelectionModel()
                 .addListSelectionListener(
                         x -> {
-                            final int row = x.getFirstIndex();
+                            int row = x.getFirstIndex();
                             if (row >= 0) {
                                 currentRow = table.convertRowIndexToModel(row);
                             }
@@ -226,10 +214,17 @@ public class FSCompare {
         table.addMouseListener(
                 new MouseAdapter() {
                     public void mousePressed(MouseEvent e) {
-                        if (e.getClickCount() == 2 && table.getSelectedRow() != -1) {
-                            try {
-                                model.addDir();
-                            } catch (IOException ignore) {
+                        if (e.getClickCount() == 2) {
+                            if (table.getSelectedRow() != -1) {
+                                try {
+                                    model.addDir(null);
+                                } catch (IOException ignore) {
+                                }
+                            } else {
+                                try {
+                                    model.addDir(editor);
+                                } catch (IOException ignore) {
+                                }
                             }
                         }
                     }
